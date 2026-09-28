@@ -1,0 +1,88 @@
+# ─────────────────────────────────────────────────────────────
+#  VelocityPlayerSync
+#  같은 Redis 에 연결된 Velocity 프록시끼리 접속자를 공유합니다.
+# ─────────────────────────────────────────────────────────────
+
+# 이 프록시의 이름. 프록시마다 반드시 다르게 설정하세요.
+# 영문, 숫자, '-', '_' 만 쓸 수 있고 최대 32자입니다.
+proxy-id: "proxy-1"
+
+redis:
+  # 형식: redis://[:비밀번호@]호스트:포트/DB번호   (TLS 는 rediss://)
+  # 예시: redis://:mypassword@127.0.0.1:6379/0
+  # 비밀번호에 특수문자가 있으면 URL 인코딩하세요. (예: @ → %40)
+  url: "redis://localhost:6379/0"
+  # 모든 키와 채널 이름 앞에 붙는 접두사. 같은 Redis 를 쓰는 다른 네트워크와 겹치지 않게 하세요.
+  key-prefix: "vps"
+  # 연결·응답 대기 시간(밀리초)
+  timeout-ms: 2000
+
+sync:
+  # 이 프록시가 살아 있다고 알리는 간격(초)
+  heartbeat-interval-seconds: 5
+  # 이 시간(초) 동안 하트비트가 없는 프록시는 꺼진 것으로 보고 그 플레이어를 목록에서 뺍니다.
+  # heartbeat-interval-seconds 의 2배 이상이어야 합니다.
+  proxy-timeout-seconds: 15
+  # 모든 프록시의 접속자 목록을 Redis 에서 다시 읽어 어긋난 부분을 바로잡는 간격(초)
+  full-resync-interval-seconds: 10
+
+# 서버 목록(멀티플레이 화면)에 보이는 인원수
+ping:
+  enabled: true
+  max-players:
+    # KEEP        : 프록시 설정(velocity.toml show-max-players)을 그대로 둡니다.
+    # FIXED       : 아래 fixed 값을 씁니다.
+    # ONLINE_PLUS : 전체 접속자 + online-plus 로 표시합니다.
+    mode: KEEP
+    fixed: 500
+    online-plus: 1
+  # 인원수에 마우스를 올렸을 때 보이는 이름 목록
+  sample:
+    enabled: true
+    max-entries: 12
+  # Redis 와 연결이 끊겼을 때
+  # LOCAL_ONLY : 이 프록시 인원만 표시합니다.
+  # LAST_KNOWN : 마지막으로 받은 전체 인원을 그대로 표시합니다.
+  on-redis-failure: LOCAL_ONLY
+
+# 같은 계정이 다른 프록시에 이미 접속해 있을 때
+duplicate-login:
+  enabled: true
+  # KICK_OLD : 기존 접속을 끊고 새 접속을 받습니다. (바닐라와 같은 동작)
+  # DENY_NEW : 새 접속을 거부합니다.
+  action: KICK_OLD
+
+# TAB 유령 정리
+# TAB 의 Redis 동기화(proxy-support: REDIS)는 프록시가 비정상 종료되면 그 프록시의 플레이어를
+# 다른 프록시의 탭리스트와 %online% 에 계속 남겨 둡니다. 켜 두면 VelocityPlayerSync 가
+# 꺼진 프록시를 알아챘을 때 TAB 에 그 플레이어들의 퇴장을 대신 알려 지웁니다.
+# (TAB 내부 메시지 형식을 쓰므로 TAB 을 크게 업데이트한 뒤 문제가 생기면 끄세요)
+tab-ghost-cleanup:
+  enabled: true
+  # "TAB_4_" + TAB config.yml 의 proxy-support.channel-name-suffix (기본값 custom)
+  channel: "TAB_4_custom"
+
+# MiniMessage 형식 (https://docs.advntr.dev/minimessage/format.html)
+# {prefix} 는 위 prefix 로 바뀝니다.
+messages:
+  prefix: "<gray>[<aqua>VPS</aqua>]</gray> "
+  usage: "{prefix}<gray>/vps status</gray> <dark_gray>|</dark_gray> <gray>/vps list [서버]</gray> <dark_gray>|</dark_gray> <gray>/vps find 닉네임</gray> <dark_gray>|</dark_gray> <gray>/vps reload</gray>"
+  disabled: "{prefix}<red>동기화가 꺼져 있습니다. 콘솔 로그를 확인하세요.</red>"
+  status-header: "{prefix}<white>프록시 <aqua>{proxies}</aqua>대 · 전체 <aqua>{online}</aqua>명 · Redis {redis}</white>"
+  status-redis-ok: "<green>정상 ({latency}ms)</green>"
+  status-redis-fail: "<red>연결 끊김</red>"
+  status-line: " <dark_gray>-</dark_gray> <aqua>{proxy}</aqua>{self} <gray>{players}명 · 하트비트 {heartbeat}</gray>"
+  status-self: " <yellow>(현재)</yellow>"
+  status-conflict: "{prefix}<red>다른 프록시가 같은 proxy-id '{proxy}' 를 쓰고 있어 이 프록시의 접속자가 공유되지 않고 있습니다.</red>"
+  list-header: "{prefix}<white>접속자 <aqua>{count}</aqua>명</white>"
+  list-server: " <aqua>{server}</aqua> <gray>({count})</gray><dark_gray>:</dark_gray> <white>{players}</white>"
+  list-empty: "{prefix}<gray>접속 중인 플레이어가 없습니다.</gray>"
+  list-vanished-tag: "<gray>[V]</gray>"
+  find-result: "{prefix}<white>{player}</white> <gray>→ 프록시</gray> <aqua>{proxy}</aqua><gray>, 서버</gray> <aqua>{server}</aqua>"
+  find-not-found: "{prefix}<red>{player} 님은 접속 중이 아닙니다.</red>"
+  no-server: "접속 중"
+  reload-success: "{prefix}<green>설정을 다시 불러왔습니다.</green>"
+  reload-failed: "{prefix}<red>설정을 불러오지 못했습니다. 콘솔 로그를 확인하세요.</red>"
+  duplicate-login: "<red>이미 다른 프록시에 접속 중인 계정입니다.</red>"
+  duplicate-login-in-progress: "<red>같은 계정의 접속을 처리하고 있습니다. 잠시 후 다시 접속해 주세요.</red>"
+  kicked-logged-in-elsewhere: "<red>다른 곳에서 같은 계정으로 접속하여 연결이 종료되었습니다.</red>"

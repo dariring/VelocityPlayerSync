@@ -1,0 +1,12 @@
+{
+  "id": "velocityplayersync",
+  "name": "VelocityPlayerSync",
+  "version": "${version}",
+  "description": "Shares online players between Velocity proxies through Redis.",
+  "url": "https://hirest.kr",
+  "authors": ["SweetRa1n"],
+  "dependencies": [
+    { "id": "miniplaceholders", "optional": true }
+  ],
+  "main": "kr.hirest.velocityplayersync.VelocityPlayerSync"
+}

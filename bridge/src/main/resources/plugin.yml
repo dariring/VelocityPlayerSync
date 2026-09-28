@@ -1,0 +1,7 @@
+name: VelocityPlayerSync-Bridge
+version: '${version}'
+main: kr.hirest.velocityplayersync.bridge.VelocityPlayerSyncBridge
+api-version: '1.21'
+authors: [ SweetRa1n ]
+description: Forwards vanish status (CMI and others) to VelocityPlayerSync on Velocity.
+website: https://hirest.kr
