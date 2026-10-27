@@ -4,9 +4,17 @@ plugins {
     id("xyz.jpenilla.run-velocity") version "3.1.0" apply false
 }
 
+// CI runs and retries must produce distinct versions, including in plugin metadata.
+val ciBuildNumber = providers.environmentVariable("GITHUB_RUN_NUMBER")
+    .orElse(providers.environmentVariable("BUILD_NUMBER"))
+if (ciBuildNumber.isPresent) {
+    val ciBuildAttempt = providers.environmentVariable("GITHUB_RUN_ATTEMPT").orElse("1").get()
+    version = "${version}-build.${ciBuildNumber.get()}.$ciBuildAttempt"
+}
+
 allprojects {
     group = "kr.hirest"
-    version = "1.0.0"
+    version = rootProject.version
 }
 
 // collectJars 가 하위 모듈의 shadowJar 태스크를 참조하므로 하위 모듈을 먼저 설정한다.
