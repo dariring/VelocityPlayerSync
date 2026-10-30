@@ -20,8 +20,14 @@ import java.time.Duration
 @Suppress("DEPRECATION")
 class RedisConnector(private val settings: RedisSettings) : AutoCloseable {
 
-    private val uri: URI = URI.create(settings.url).also {
-        require(JedisURIHelper.isValid(it)) { "redis.url '${settings.url}' 을(를) 해석할 수 없습니다." }
+    // 이 예외 메시지는 로그에 남는다. URL 에 비밀번호가 들어 있으므로 입력값을 메시지에 넣지 않는다.
+    // URI.create 자신의 메시지에도 입력 전체가 들어간다.
+    private val uri: URI = try {
+        URI.create(settings.url)
+    } catch (_: IllegalArgumentException) {
+        throw IllegalArgumentException(INVALID_URL)
+    }.also {
+        require(JedisURIHelper.isValid(it)) { INVALID_URL }
     }
     private val address: HostAndPort = JedisURIHelper.getHostAndPort(uri)
 
@@ -59,5 +65,9 @@ class RedisConnector(private val settings: RedisSettings) : AutoCloseable {
 
     override fun close() {
         pool.close()
+    }
+
+    private companion object {
+        const val INVALID_URL = "redis.url 을 해석할 수 없습니다. 형식과 비밀번호 특수문자의 URL 인코딩을 확인하세요."
     }
 }
