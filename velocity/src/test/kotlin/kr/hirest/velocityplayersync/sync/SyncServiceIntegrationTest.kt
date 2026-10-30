@@ -17,6 +17,7 @@ import redis.clients.jedis.JedisPubSub
 import redis.embedded.RedisServer
 import java.io.ByteArrayInputStream
 import java.io.DataInputStream
+import java.time.Duration
 import java.util.Base64
 import java.util.UUID
 import java.util.concurrent.CopyOnWriteArrayList
@@ -126,6 +127,23 @@ class SyncServiceIntegrationTest {
         a.service.onQuit(uuidOf("a1"))
         b.service.onQuit(uuidOf("b1"))
         eventually(message = { "A=${a.count()} B=${b.count()}" }) { a.count() == 61 && b.count() == 61 }
+    }
+
+    @Test
+    fun `a resync interval longer than the proxy timeout stays healthy between resyncs`() {
+        val base = testConfig("A", port)
+        val config = base.copy(sync = base.sync.copy(fullResyncInterval = Duration.ofMillis(2500)))
+        val connector = RedisConnector(config.redis)
+        val service = SyncService(config, PlayerRegistry("A"), connector, LoggerFactory.getLogger("proxy-A"), "test") {}
+        service.start()
+        try {
+            eventually { service.isHealthy() }
+            Thread.sleep(2000) // proxy-timeout(1500ms)은 지났지만 다음 동기화(2500ms) 전
+            assertTrue(service.isHealthy(), "동기화 사이에 비정상으로 판단했습니다")
+        } finally {
+            service.shutdown()
+            connector.close()
+        }
     }
 
     @Test

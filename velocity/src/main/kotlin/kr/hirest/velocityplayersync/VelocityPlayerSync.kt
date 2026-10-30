@@ -88,21 +88,29 @@ class VelocityPlayerSync @Inject constructor(
     @Synchronized
     fun reload(): Boolean {
         val config = loadConfig() ?: return false
+        val redis = createConnector(config) ?: return false
         val old = runtime
-        val previous = old?.registry?.localPlayers()?.associateBy { it.uuid } ?: emptyMap()
         old?.stop(proxyStopping = false)
-        runtime = createRuntime(previous, config)
+        // 멈춘 뒤에 읽어야 그 사이에 들어온 입장과 버니시 변경까지 이어받는다.
+        val previous = old?.registry?.localPlayers()?.associateBy { it.uuid } ?: emptyMap()
+        runtime = createRuntime(previous, config, redis)
         return runtime != null
     }
 
-    private fun createRuntime(previous: Map<UUID, GlobalPlayer>, loaded: PluginConfig? = null): Runtime? {
+    private fun createConnector(config: PluginConfig): RedisConnector? = try {
+        RedisConnector(config.redis)
+    } catch (e: Exception) {
+        logger.error("Redis 설정이 올바르지 않습니다 ({}). 동기화를 시작하지 않습니다.", e.message)
+        null
+    }
+
+    private fun createRuntime(
+        previous: Map<UUID, GlobalPlayer>,
+        loaded: PluginConfig? = null,
+        connector: RedisConnector? = null,
+    ): Runtime? {
         val config = loaded ?: loadConfig() ?: return null
-        val redis = try {
-            RedisConnector(config.redis)
-        } catch (e: Exception) {
-            logger.error("Redis 설정이 올바르지 않습니다 ({}). 동기화를 끈 상태로 시작합니다.", e.message)
-            return null
-        }
+        val redis = connector ?: createConnector(config) ?: return null
 
         val registry = PlayerRegistry(config.proxyId)
         // 리로드할 때 이미 접속해 있던 플레이어를 다시 등록한다.
