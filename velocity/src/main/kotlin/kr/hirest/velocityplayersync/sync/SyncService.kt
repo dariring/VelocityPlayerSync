@@ -53,6 +53,9 @@ class SyncService(
     private val conflictThresholdMs = heartbeatMs * 2 + 1000
     private val startedAt = System.currentTimeMillis()
 
+    /** 전체 동기화 간격이 proxy-timeout 보다 길어도 동기화 사이마다 비정상으로 보이지 않게 한다. */
+    private val healthyWindowMs = maxOf(timeoutMs, resyncMs + heartbeatMs)
+
     private val writer: ScheduledExecutorService = Executors.newSingleThreadScheduledExecutor(daemon("VPS-Writer"))
     private val reader: ScheduledExecutorService = Executors.newSingleThreadScheduledExecutor(daemon("VPS-Reader"))
     private var subscriberThread: Thread? = null
@@ -139,8 +142,8 @@ class SyncService(
         runCatching { subscriberThread?.join(2000) }
     }
 
-    /** 마지막 전체 동기화가 [PluginConfig.sync] 의 proxy-timeout 안에 성공했는지 */
-    fun isHealthy(): Boolean = running && System.currentTimeMillis() - lastResyncOkAt < timeoutMs
+    /** 마지막 전체 동기화가 [healthyWindowMs] 안에 성공했는지 */
+    fun isHealthy(): Boolean = running && System.currentTimeMillis() - lastResyncOkAt < healthyWindowMs
 
     fun proxies(): List<ProxyInfo> =
         registry.proxies(PlayerRegistry.ProxyMeta(startedAt, lastSelfHeartbeat, pluginVersion))
